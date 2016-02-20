@@ -1,3 +1,6 @@
+from __future__ import division
+from __future__ import unicode_literals
+
 __author__ = 'TonySun'
 
 from collections import Counter
@@ -8,6 +11,7 @@ from operator import itemgetter
 import utilites
 import time
 import matlab_wrapper
+from random import shuffle
 
 
 def TicTocGenerator():
@@ -43,16 +47,20 @@ class ParseForest():
         print("Done.")
         toc()
         self.train_file_path = utilites.loadVariableFromFile("static/Corel5K/train_file_path.pkl")
+        # load contents of concepts
+        self.concepts = utilites.loadVariableFromFile("static/Corel5K/cluster_contents.pkl")
+        self.tag_scores = utilites.loadVariableFromFile("static/Corel5K/all_tags_scores.pkl")
         # start a matlab session for feature extraction
         self.matlab = matlab_wrapper.MatlabSession(matlab_root="/Applications/MATLAB_R2015b.app")  # start matlab
         self.matlab.eval('run MatConvNet/matlab/vl_setupnn')  # basic config
         self.matlab.eval('run vlfeat/toolbox/vl_setup')  ## basic config
+        self.matlab.eval("feature('DefaultCharacterSet', 'UTF8')")
         print("Loading cnn model...")
         tic()
         self.matlab.eval("net = load('/Users/TONYSUN/Desktop/sir_demo/static/cnnmodel/imagenet-matconvnet-vgg-verydeep-16.mat')")
         toc()
         print("Matlab session started.")
-        print("Ready for working ^_^.")
+        print("Ready for work ^_^.")
 
 
     def disp_tree_info(self, node):
@@ -100,7 +108,6 @@ class ParseForest():
         :param forest: forest
         :return: summary of results of all trees
         """
-        print(sample)
         a_rc = []
         a_rs = []
 
@@ -135,6 +142,9 @@ class ParseForest():
         srs_top5 = srs_sorted[0:5]  # get top5 sample count
         # replace sample index with real image path
         srs_top5 = [(self.train_file_path[pair[0]], pair[1]) for pair in srs_top5]
+
+        print src_top5
+        print srs_top5
 
         return src_top5, srs_top5
 
@@ -177,6 +187,62 @@ class ParseForest():
         return src, srs
 
 
+    def gen_random_labels(self, src):
+        """
+        generate labels according to given concepts
+        :param src: top 5 concepts counts
+        :return: generated labels for test image
+        """
+        src1 = src[0]  # keep top 2 result
+        src2 = src[1]
+        con1 = self.concepts[src1[0]]  # get labels for each concepts
+        con2 = self.concepts[src2[0]]
+        shuffle(con1)
+        shuffle(con2)
+
+        if len(con1) > 3:
+            con1 = con1[0:3]  # keep at most three labels for each concepts
+
+        if len(con2) > 3:
+            con2 = con2[0:3]
+
+        return con1 + con2  # return all labels
 
 
+    def gen_weighted_labels(self, src):
+        """
+        return weighted labels from given concepts
+        :param src: top 5 concepts counts
+        :return: weighted labels for test image
+        """
+        src1 = src[0]  # keep top 2 result
+        src2 = src[1]
+        con1 = self.concepts[src1[0]]  # get labels for each concepts
+        con2 = self.concepts[src2[0]]
 
+        score1 = []  # create empty list to store score
+        score2 = []
+
+        for lb1 in con1:
+            score1.append(self.tag_scores[lb1])  # find score for given tag in tag dict
+
+        for lb2 in con2:
+            score2.append(self.tag_scores[lb2])
+
+        d_c1 = dict(zip(con1, score1))  # build dict to store tag name and score
+        d_c2 = dict(zip(con2, score2))
+
+        d_c1_sorted = sorted(d_c1.items(), key=itemgetter(1))[::-1]  ## sort dict according to tag score
+        d_c2_sorted = sorted(d_c2.items(), key=itemgetter(1))[::-1]
+
+        if len(d_c1_sorted) > 3:
+            d_c1_sorted = d_c1_sorted[0:3]
+        if len(d_c2_sorted) > 3:
+            d_c2_sorted = d_c2_sorted[0:3]
+
+        d_c1_sorted = [pair[0] for pair in d_c1_sorted]
+        d_c2_sorted = [pair[0] for pair in d_c2_sorted]
+        print("Result of weighted labelling:")
+        print d_c1_sorted + d_c2_sorted
+
+        return d_c1_sorted + d_c2_sorted

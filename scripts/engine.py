@@ -28,19 +28,20 @@ class Index:
             # splits the and chooses the last part (the filename with extension)
             filename = filepath.split('/')[-1]
             # creates the file where the uploaded file should be stored
-            fout = open(filedir +'/'+ filename,'wb')
+            outfile = filedir + '/' + 'test.' + filename.split('.')[-1]
+            fout = open(outfile,'wb')
             # writes the uploaded file to the newly created file.
             fout.write(x.myfile.file.read())
             # closes the file, upload complete.
             fout.close()
 
-            outfile = filedir +'/'+filename
-            s_rc, s_rc = p_forest.im2res(outfile)
-            print s_rc
-            print s_rc
+            print outfile
+            s_rc, s_rs = p_forest.im2res(outfile)
+            # labels = p_forest.gen_random_labels(s_rc)
+            labels = p_forest.gen_weighted_labels(s_rc)
 
         print("Done.")
-        return render.index(outfile, s_rc, s_rc)
+        return render.index(outfile, labels, s_rs)
 
 
 if __name__ == "__main__":

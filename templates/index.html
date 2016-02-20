@@ -1,0 +1,71 @@
+$def with(im_src, labels, sum_sam_count)
+
+
+
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta content='width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no' name='viewport'>
+	<title>SIR DEMO</title>
+	<link href="../static/css/index.css" rel="stylesheet" type="text/css" />
+</head>
+
+<body>
+	<div class="content_wrapper">
+		<header class="main_header">
+			<h1 class="title">Semantic Image Retireval Demo</h1>
+		</header>
+
+		<div class="main_content">
+			<div class="left_content">
+				<div id="div_left_title">
+					Upload test image
+				</div> <!--end of div left title-->
+				<!--File upload code block-->
+				<form method="POST" enctype="multipart/form-data" action="" class="f_upload">
+					<input type="file" id="i_file" name="myfile" />
+					<input type="submit" id="i_upload" value="Upload"/>
+				</form> <!--end of file upload-->
+
+				$if im_src:
+					<div id="div_show_image">
+						<img src="$im_src" name="uploaded file" class="img"/>
+					</div> <!--end of show uploaded image-->
+			</div> <!--end of div left content-->
+
+			<div class="right_content">
+				<div id="div_right_title">
+					Parsed Result
+				</div> <!--end of div right title-->
+
+				<div id="div_label_wrapper">
+				$for j in range(len(labels)):
+					<div class="div_label">$labels[j]</div>
+				</div>
+
+				<div id="div_img_wrapper">
+				$for i in range(5):
+					<div class="div_result_image">
+						$if sum_sam_count:
+							<h5 class="h_count">$sum_sam_count[i][1]</h5>
+						$else:
+							<h5 class="h_count">0</h5>
+						$if sum_sam_count:
+							<img src="$sum_sam_count[i][0]" name="" class="r_img">
+						$else:
+							<img src="" name="" class="r_img">
+					</div> <!--end of div result image-->
+				</div>
+			</div> <!--end of div right content-->
+		</div> <!--end of div main content-->
+
+		<footer class="main_footer">
+			Author: Tony Sun
+		</footer>
+	</div> <!--end of div content wrapper-->
+
+
+
+</body>
+</html>
