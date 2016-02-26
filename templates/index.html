@@ -1,5 +1,4 @@
-$def with(im_src, labels, sum_sam_count)
-
+$def with(im_src, labels, sum_sam_count, im_near_path, rf_bl_time)
 
 
 <!DOCTYPE html>
@@ -38,25 +37,51 @@ $def with(im_src, labels, sum_sam_count)
 				<div id="div_right_title">
 					Parsed Result
 				</div> <!--end of div right title-->
-
+				<h5 class="h5_method">Predicted Labels:</h5>
 				<div id="div_label_wrapper">
-				$for j in range(len(labels)):
-					<div class="div_label">$labels[j]</div>
+					$if labels:
+						$for j in range(len(labels)):
+							<div class="div_label">$labels[j]</div>
+					$else:
+						$for j in range(len(labels)):
+							<div class="div_label">...</div>
 				</div>
+				<div class="splitter"></div>
+				<div class="div_img_wrapper">
+					$if rf_bl_time:
+						<h5 class="h5_method">CGRM: $rf_bl_time[0]</h5>
+					$else:
+						<h5 class="h5_method">CGRM: </h5>
 
-				<div id="div_img_wrapper">
-				$for i in range(5):
+					$for i in range(5):
 					<div class="div_result_image">
 						$if sum_sam_count:
 							<h5 class="h_count">$sum_sam_count[i][1]</h5>
 						$else:
 							<h5 class="h_count">0</h5>
 						$if sum_sam_count:
-							<img src="$sum_sam_count[i][0]" name="" class="r_img">
+							<img src="$sum_sam_count[i][0]" name="" class="r_img" />
 						$else:
-							<img src="" name="" class="r_img">
+							<img src="" name="" class="r_img" />
 					</div> <!--end of div result image-->
+				</div><!--end of div image wrapper-->
+				<div class="splitter"></div>
+				<div class="div_img_wrapper">
+					$if rf_bl_time:
+						<h5 class="h5_method">JEC(Baseline): $rf_bl_time[1]</h5>
+					$else:
+						<h5 class="h5_method">JEC(Baseline): </h5>
+
+					$for k in range(5):
+					<div class="div_result_image_bl">
+						$if im_near_path:
+							<img src="$im_near_path[k]" class="r_img_bl"/>
+						$else:
+							<img src="" name="" class="r_img_bl"/>
+					</div>
+
 				</div>
+
 			</div> <!--end of div right content-->
 		</div> <!--end of div main content-->
 
