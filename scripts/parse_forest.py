@@ -12,6 +12,8 @@ import utilites
 import time
 import matlab_wrapper
 from random import shuffle
+from scipy.io import loadmat
+from scipy.spatial import distance
 
 
 def TicTocGenerator():
@@ -43,13 +45,24 @@ class ParseForest():
 
         print("Loading forest model...")
         tic()
-        self.forest = utilites.loadVariableFromFile("static/Corel5K/forest_400_trees_64_feats/forest.pkl")
+        self.forest = utilites.loadVariableFromFile("static/Corel5K/forest/forest_128.pkl")
         print("Done.")
         toc()
+        self.train_vectors = loadmat(utilites.getAbsPath('static/Corel5K/train_vectors_original.mat'))
+        self.train_vectors = self.train_vectors['train_vectors']
         self.train_file_path = utilites.loadVariableFromFile("static/Corel5K/train_file_path.pkl")
         # load contents of concepts
         self.concepts = utilites.loadVariableFromFile("static/Corel5K/cluster_contents.pkl")
         self.tag_scores = utilites.loadVariableFromFile("static/Corel5K/all_tags_scores.pkl")
+
+        self.train_vectors_classic = loadmat(utilites.getAbsPath('static/Corel5K/baseline_features/corel5k_train_feats_classic.mat'))
+        self.train_vectors_classic = self.train_vectors_classic['corel5k_train_feats_classic']
+
+        self.test_vectors_classic = loadmat(utilites.getAbsPath('static/Corel5K/baseline_features/corel5k_test_feats_classic.mat'))
+        self.test_vectors_classic = self.test_vectors_classic['corel5k_test_feats_classic']
+        self.test_file_name = utilites.loadVariableFromFile('static/Corel5K/corel5k_test_file_name.pkl')
+        self.feat_dict_classic = dict(zip(self.test_file_name, self.test_vectors_classic))
+
         # start a matlab session for feature extraction
         self.matlab = matlab_wrapper.MatlabSession(matlab_root="/Applications/MATLAB_R2015b.app")  # start matlab
         self.matlab.eval('run MatConvNet/matlab/vl_setupnn')  # basic config
@@ -57,7 +70,7 @@ class ParseForest():
         self.matlab.eval("feature('DefaultCharacterSet', 'UTF8')")
         print("Loading cnn model...")
         tic()
-        self.matlab.eval("net = load('/Users/TONYSUN/Desktop/sir_demo/static/cnnmodel/imagenet-matconvnet-vgg-verydeep-16.mat')")
+        self.matlab.eval("net = load('/Users/TONYSUN/Desktop/SIR_Corel5K_demo/static/cnnmodel/imagenet-matconvnet-vgg-verydeep-16.mat')")
         toc()
         print("Matlab session started.")
         print("Ready for work ^_^.")
@@ -123,7 +136,23 @@ class ParseForest():
         return sum_a_rc, sum_a_rs
 
 
-    def parse_test_sample(self, test_sample):
+    def find_near_neighbor(self, test_file_name, k=5):
+        """
+        find nearest neighbor by computed cosine distance between test samle and all training samples
+        :param test_sample:
+        :param k:
+        :return:
+        """
+        test_sample = np.array([self.feat_dict_classic[test_file_name]])
+        dist = 1 - distance.cdist(test_sample, self.train_vectors_classic, metric='cosine')  # compute distance to fine k nearest neighbor
+        dist_sorted = dist.argsort()[0][::-1] # sort the distance with descending order and return sample index
+        dist_topk = list(dist_sorted[0:k])
+        sample_topk_path = [self.train_file_path[s_index] for s_index in dist_topk]
+        print sample_topk_path
+        return sample_topk_path
+
+
+    def parse_test_sample(self, test_sample, test_file_name, k=5):
         """
         Pass the feature of test sample to the forest and retrieve the result
         :param test_sample: feature of test sample
@@ -131,6 +160,7 @@ class ParseForest():
         :return: src_top5: top5 concept label count, srs_top5: top5 sample count
         """
         # src, srs = self.parse_forest(test_sample)
+        rf_start = time.time()
         src, srs = self.parse_forest(test_sample)
         label_name = range(100)  # build a label sequence
         src_dict = dict(zip(label_name, src))  # build dict with label sequence and count
@@ -138,15 +168,23 @@ class ParseForest():
         src_sorted = sorted(src_dict.items(), key=itemgetter(1))[::-1]  # sort the dict according to count
         srs_sorted = sorted(srs.items(), key=itemgetter(1))[::-1]  # sort the sample according to count
 
-        src_top5 = src_sorted[0:5]  # get top5 label count
-        srs_top5 = srs_sorted[0:5]  # get top5 sample count
+        src_topk = src_sorted[0:k]  # get top5 label count
+        srs_topk = srs_sorted[0:k]  # get top5 sample count
         # replace sample index with real image path
-        srs_top5 = [(self.train_file_path[pair[0]], pair[1]) for pair in srs_top5]
+        srs_topk = [(self.train_file_path[pair[0]], pair[1]) for pair in srs_topk]
+        rf_end = time.time() - rf_start
+        rf_end = str(float("{0:.2f}".format(rf_end))) + ' seconds'
 
-        print src_top5
-        print srs_top5
+        print src_topk
+        print srs_topk
 
-        return src_top5, srs_top5
+        bl_start = time.time()
+        im_near_path = self.find_near_neighbor(test_file_name)
+
+        bl_end = time.time() - bl_start
+        bl_end = str(float("{0:.2f}".format(bl_end))) + ' seconds'
+
+        return src_topk, srs_topk, im_near_path, (rf_end, bl_end)
 
 
     def extract_feature(self, test_input):
@@ -175,16 +213,16 @@ class ParseForest():
         return self.matlab.workspace.feat_vec
 
 
-    def im2res(self, im_path):
+    def im2res(self, im_path, test_file_name):
         """
         read an image file and give the final parsed result
         :param im_path: image file path
         :return: top5 concept label count and top5 sample count
         """
         im_vec = self.extract_feature(utilites.getAbsPath(im_path))
-        src, srs = self.parse_test_sample(im_vec)
+        src, srs, im_near_path, rf_bl_time = self.parse_test_sample(im_vec, test_file_name)
 
-        return src, srs
+        return src, srs, im_near_path, rf_bl_time
 
 
     def gen_random_labels(self, src):
@@ -246,3 +284,22 @@ class ParseForest():
         print d_c1_sorted + d_c2_sorted
 
         return d_c1_sorted + d_c2_sorted
+
+
+# test code only
+# train_file_path = utilites.loadVariableFromFile("static/Corel5K/train_file_path.pkl")
+# train_vectors = loadmat(utilites.getAbsPath('static/Corel5K/train_vectors_original.mat'))
+# train_vectors = train_vectors['train_vectors']
+# test_vectors = loadmat(utilites.getAbsPath('static/Corel5K/test_vectors_original.mat'))
+# test_vectors = test_vectors['test_vectors']
+#
+# def find_near_neighbor(test_sample, k=5):
+#     test_sample = np.array([test_sample])
+#     dist = 1 - distance.cdist(test_sample, train_vectors, metric='cosine')  # compute distance to fine k nearest neighbor
+#     dist_sorted = dist.argsort()[0][::-1] # sort the distance with descending order and return sample index
+#     dist_topk = list(dist_sorted[0:k])
+#     print dist_topk
+#     sample_topk_path = [train_file_path[s_index] for s_index in dist_topk]
+#     return sample_topk_path
+#
+# result = find_near_neighbor(test_vectors[0])
