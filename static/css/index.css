@@ -1,13 +1,14 @@
 body{
 	margin: 0;
-	margin-top: -16px;
 	font-family: "Arial", Georgia, serif;
+	margin-top: -16px;
 }
 
 .content_wrapper {
-	margin: 0px auto;
+	margin: 0 auto;
 	width: 100%;
-	padding: 0px auto;
+	padding: 0 auto;
+	height: auto;
 }
 
 .main_header{
@@ -22,10 +23,10 @@ body{
 }
 
 .main_content{
-	height: 450px;
+	min-height: 730px;
 	clear: both;
 	background: #ECF0F5;
-
+	margin-bottom: 2px;
 }
 
 .left_content{
@@ -47,7 +48,7 @@ body{
 	border-bottom:1px solid #DADCE3;
 	color: #555555;
 	vertical-align: center;
-	padding-left: 30px;
+	padding-left: 20px;
 }
 
 .f_upload{
@@ -96,16 +97,25 @@ body{
 .r_img{
 	margin: 0 auto;
 	padding:0 auto;
-	display:block;
+	display: block;
 	max-width: 95%;
 	max-height: 60%;
+	vertical-align: middle;
+}
+
+.r_img_bl{
+	margin: 0 auto;
+	padding:0 auto;
+	display: block;
+	max-width: 95%;
+	max-height: 95%;
 	vertical-align: middle;
 }
 
 
 .right_content{
 	width: 67%;
-	height: 90%;
+	height: auto;
 	margin-top:20px;
 	margin-right: 20px;
 	background: #FFFFFF;
@@ -122,7 +132,7 @@ body{
 	border-bottom:1px solid #DADCE3;
 	color: #555555;
 	vertical-align: center;
-	padding-left: 40px;
+	padding-left: 20px;
 }
 
 .div_label {
@@ -130,8 +140,7 @@ body{
 	width: 100px;
 	height: 30px;
 	line-height: 30px;
-	margin-top: 20px;
-	margin-left: 30px;
+	margin-left: 20px;
 	margin-right: -5px;
 	border: 1px dashed #DADCE3;
 	text-align: center;
@@ -142,13 +151,13 @@ body{
 #div_label_wrapper {
 	height: 30px;
 	width: 100%;
-	clear:both;
+	clear: both;
+	margin: 0 auto;
 }
 
 .div_result_image{
 	width:17%;
-	height:50%;
-	margin-top: 5%;
+	height: 90%;
 	margin-left: 2%;
 	float:left;
 	border:1px solid #DADCE3;
@@ -156,18 +165,53 @@ body{
 	-webkit-border-radius: 5px;
 	-moz-border-radius: 5px;
 	border-radius: 5px;
+	margin-bottom: 10px;
 }
 
-#div_img_wrapper {
+.div_result_image_bl{
+	width:17%;
+	height: 70%;
+	margin-left: 2%;
+	float:left;
+	border:1px solid #DADCE3;
+	text-align: center;
+	-webkit-border-radius: 5px;
+	-moz-border-radius: 5px;
+	border-radius: 5px;
+	margin-bottom: 10px;
+}
+
+.div_img_wrapper {
 	clear: both;
 	width: 100%;
-	height: 100%
+	height: 220px;
+}
+
+.splitter {
+	width: 100%;
+	height: 1px;
+	border-bottom: 1px solid #DADCE3;
+	clear: both;
+	margin-top:10px;
+}
+
+.h5_method {
+	clear:both;
+	width: 90%;
+	height: 15px;
+	line-height: 15px;
+	padding-left: 20px;
+}
+
+.span_time {
+	float: left;
+	height: 15px;
+	line-height: 15px;
 }
 
 .h_count{
 	clear:both;
 	line-height: 20px;
-	margin-bottom:5px;
 }
 
 .main_footer{
