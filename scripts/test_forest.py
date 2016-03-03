@@ -9,6 +9,8 @@ import time
 from collections import Counter
 from operator import itemgetter
 from scipy.spatial import distance
+import matplotlib.pyplot as plt
+import skimage.io as io
 
 __author__ = 'TonySun'
 
@@ -43,8 +45,13 @@ test_file_list = [term.strip().decode('utf-8').replace('\n', '') + '.jpeg' for t
 utilites.saveVariableToFile(test_file_list, utilites.getAbsPath('static/Corel5K/corel5k_test_list.pkl'))
 """
 test_file_list = utilites.loadVariableFromFile('static/Corel5K/corel5k_test_list.pkl')
+train_file_path = utilites.loadVariableFromFile("static/Corel5K/train_file_path.pkl")
 test_anno = utilites.loadVariableFromFile('static/Corel5K/test_anno_filtered.pkl')
 train_anno = utilites.loadVariableFromFile('static/Corel5K/train_anno_filtered.pkl')
+train_anno_concept = utilites.loadVariableFromFile("static/Corel5K/train_anno_concept.pkl")
+test_anno_concept = utilites.loadVariableFromFile("static/Corel5K/test_anno_concept.pkl")
+all_prob = utilites.loadVariableFromFile("static/Corel5K/all_probs.pkl")
+concepts = utilites.loadVariableFromFile("static/Corel5K/cluster_contents.pkl")
 train_vectors = loadmat(utilites.getAbsPath('static/Corel5K/train_vectors_original.mat'))
 train_vectors = train_vectors['train_vectors']
 test_vectors = loadmat(utilites.getAbsPath('static/Corel5K/test_vectors_original.mat'))
@@ -197,6 +204,147 @@ def cal_all_sknnm(topk=10):
     return sum_rf, sum_knn
 
 
+def parse_test_sample_findall(test_sample, forest):
+    """
+    Pass the feature of test sample to the forest and retrieve the result
+    :param test_sample: feature of test sample
+    :param forest: loaded forest
+    :return: src_top5: top5 concept label count, srs_top5: top5 sample count
+    """
+    # src, srs = self.parse_forest(test_sample)
+    src, srs = parse_forest(test_sample, forest)
+    label_name = range(100)  # build a label sequence
+    src_dict = dict(zip(label_name, src))  # build dict with label sequence and count
 
-# example: 20000/20004.jpeg
-# 108000/108049.jpeg
+    src_sorted = sorted(src_dict.items(), key=itemgetter(1))[::-1]  # sort the dict according to count
+    srs_sorted = sorted(srs.items(), key=itemgetter(1))[::-1]  # sort the sample according to count
+
+    print src_sorted
+    print srs_sorted
+
+    return src_sorted, srs_sorted
+
+
+def cal_concept_prob_single(test_sample_index):
+    """
+    calculate the probability that a given test image contains each tag
+    :param test_sample_index: index of test sample in all test samples
+    :return: a list containing probabilities for the image containing each tag
+    """
+    # first obtain all nearest neighbour
+    src, srs = parse_test_sample_findall(test_vectors[test_sample_index], forest)
+    prob = np.zeros((1, len(src)))  # initialize an empty zero to store concept probability
+
+    all_count = 0.0  # sum counts for all retrieved semantic nearest neighbour
+    for rs in srs:
+        all_count += rs[1]
+
+    for i in range(0, len(src)):  # for each concept
+        for pair in srs:  # for every retrieved semantic nearest neighbour
+            if train_anno_concept[pair[0]][i] == 1:  # if this SNN contains concept i
+                prob[0][i] += pair[1]  # add semantic measure to probability
+
+        prob[0][i] = prob[0][i] / all_count
+
+    return prob
+
+
+def cal_concept_prob_all():
+    """
+    calculate probability of containing each concept for all test sample
+    :return: probability matrix, row denotes each test sample, column denotes probability of each concept
+    """
+    tic()
+    all_prob = []
+    for i in range(0, len(test_file_list)):
+        all_prob.append(np.squeeze(cal_concept_prob_single(i)))
+
+    all_prob = np.asarray(all_prob)
+    toc()
+    return all_prob
+
+
+def concept_based_retrieval(concept_index, all_prob, topk=5, get_path=False):
+    prob_concept = all_prob[:, concept_index]
+    test_index = list(prob_concept.argsort()[::-1])
+    test_topk = test_index[0:topk]
+
+    if get_path:
+        test_topk = ['static/Corel5K/' + test_file_list[i] for i in test_topk]
+        print test_topk
+
+    return test_topk
+
+
+def cal_avg_precision(concept_index, all_prob, k=10):
+    """
+    calculate average precision for a single concept retrieval
+    :param concept_index: index of query concept
+    :param all_prob: probability matrix
+    :param k: top k result used for computing
+    :return: average precision of this concept
+    """
+    result = concept_based_retrieval(concept_index, all_prob,k)  # first get the retrieval result
+    preci_indicator = np.zeros(len(result))  # initialize empty array to store precision at each rank
+    for i in range(0, len(result)):  # given top k result
+        if test_anno_concept[result[i]][concept_index] == 1:
+            preci_indicator[i] = 1.0
+    # print preci_indicator
+
+    avg_precision = 0.0
+    for j in range(0, len(preci_indicator)):
+        # print np.sum(preci_indicator[0:j+1])
+        temp = np.sum(preci_indicator[0:j+1]) / (j+1)
+        # print temp
+        avg_precision += temp
+
+    avg_precision = avg_precision / len(preci_indicator)
+    print("Average precision of this query: " + str(avg_precision))
+    return avg_precision
+
+
+def cal_mean_avg_precision(all_prob):
+    """
+    calculate mean average precision for multiple queries
+    :param all_prob: probability matrix
+    :return: mean average precision
+    """
+    mean_avg_precision = 0.0
+    for i in range(0, len(concepts)):
+        result = cal_avg_precision(i, all_prob, k=10)
+        mean_avg_precision += result
+        # print mean_avg_precision
+
+    mean_avg_precision = mean_avg_precision / len(concepts)
+    print("Mean average precision for " + str(len(concepts)) + " concept queries is: " + str(mean_avg_precision))
+    return mean_avg_precision
+
+
+def show_images(image_list,titles=None):
+    """Display a list of images"""
+    images = []
+    for j in range(0, len(image_list)):
+        images.append(io.imread(utilites.getAbsPath(image_list[j])))
+
+    n_ims = len(images)
+    if titles is None: titles = ['(%d)' % i for i in range(1,n_ims + 1)]
+    fig = plt.figure()
+    n = 1
+    for image,title in zip(images,titles):
+        a = fig.add_subplot(1,n_ims,n) # Make subplot
+        if image.ndim == 2: # Is image grayscale?
+            plt.gray() # Only place in this blog you can't replace 'gray' with 'grey'
+        plt.imshow(image)
+        a.set_title(title)
+        n += 1
+    # fig.set_size_inches(np.array(fig.get_size_inches()) * n_ims)
+    plt.show()
+
+
+def concept_to_image(concept_index, all_prob, topk=5):
+    print ("Content of current query concept " + str(concept_index) + ": ")
+    print concepts[concept_index]
+    result = concept_based_retrieval(concept_index, all_prob, topk, get_path=True)
+    precision = cal_avg_precision(concept_index, all_prob, topk)
+    show_images(result)
+
